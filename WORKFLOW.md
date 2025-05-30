@@ -1,61 +1,76 @@
 # GitHub Activity Banner Workflow
 
-This document outlines the simplified workflow for using the GitHub Activity Banner tool to manage your GitHub activity graph patterns.
+This document outlines the branch-based workflow for using the GitHub Activity Banner tool to create and manage GitHub activity patterns.
 
-## Simplified Workflow
+## Branch-Based Workflow
 
-### For Users: Getting Started with the Tool
+### Initial Setup
 
-1. Clone this repository
-2. Make sure you're on the `fresh-start` branch which contains the source code:
+1. Clone this repository or create a new one with these files
+2. Make sure you're on the `fresh-start` branch which contains the source code
+3. Set up a GitHub personal access token (optional, for automatic default branch setting)
+
+### Creating a New Pattern
+
+1. **Run the branch-message script**:
    ```bash
-   git checkout fresh-start
-   ```
-3. Follow the usage instructions in the README.md
-
-### For Pattern Updates: Changing Your Banner
-
-1. Start from the `fresh-start` branch:
-   ```bash
-   git checkout fresh-start
+   ./branch-message.sh
    ```
 
-2. Create a temporary branch for your new pattern:
-   ```bash
-   git checkout -b temp-pattern
-   ```
+2. **Follow the prompts**:
+   - Enter the message you want to display
+   - The script will create a new branch named `message-your-text`
+   - It will generate the pattern on this branch
+   - It will push the branch to GitHub
+   - If you provided a GitHub token, it will set the branch as default
 
-3. Generate your new pattern:
-   ```bash
-   node cli.js create "YOUR MESSAGE" --intensity=ultra --force-replace
-   ```
+3. **If you didn't provide a GitHub token**:
+   - Go to your repository settings on GitHub
+   - Navigate to the Branches section
+   - Change the default branch to your new message branch
 
-4. Force push this branch to GitHub as main:
-   ```bash
-   git push -f origin temp-pattern:main
-   ```
+### Switching Between Patterns
 
-5. Note: There may be a transition period where GitHub's contribution graph shows overlapping patterns. This will resolve as GitHub updates its cache.
+To switch between different patterns:
 
-## Understanding the Process
+1. Go to your repository settings on GitHub
+2. Navigate to the Branches section
+3. Change the default branch to the desired message branch
 
-- The `fresh-start` branch is your source of truth and contains all the tool's code
-- The `main` branch on GitHub is only for displaying your activity pattern
-- Force-replacing the main branch completely rewrites its history
-- GitHub's contribution graph may temporarily show both old and new patterns
+All message branches are preserved, so you can switch between them at any time.
 
-## Best Practices
+## How It Works
 
-1. **Keep Source Code Safe**:
-   - Always make code changes in the `fresh-start` branch
-   - Never run the pattern generation on the `fresh-start` branch
+### Branch Structure
 
-2. **Clean Patterns**:
-   - Use `--force-replace` to ensure clean pattern generation
-   - Allow time between pattern changes for GitHub's cache to update
+- **fresh-start**: Contains the source code and should never be pushed to GitHub
+- **message-xxx**: Each message gets its own branch with the pattern commits
+- The default branch on GitHub determines which pattern is displayed in your activity graph
 
-3. **Repository Management**:
-   - If overlapping patterns persist and are problematic, creating a new repository is still an option
-   - For critical presentations or screenshots, consider using a fresh repository
+### GitHub's Contribution Graph
 
-This simplified workflow balances ease of use with maintaining clean activity patterns.
+GitHub's contribution graph shows commits from the default branch of your repositories. By changing the default branch, you can control which pattern is displayed without deleting repositories or dealing with overlapping patterns.
+
+## GitHub Token Setup
+
+To enable automatic default branch setting:
+
+1. Create a GitHub personal access token at: https://github.com/settings/tokens
+2. Ensure it has 'repo' permissions
+3. Save it to `~/.github_token` or enter it when prompted by the script
+
+## Troubleshooting
+
+If you encounter issues:
+
+1. **Git process conflicts**:
+   - Run `git stash` to save any uncommitted changes
+   - Then try the operation again
+
+2. **Failed to set default branch**:
+   - Check that your GitHub token has the correct permissions
+   - Try setting the default branch manually in GitHub settings
+
+3. **Pattern not appearing in contribution graph**:
+   - Verify that the message branch is set as the default branch
+   - Allow time for GitHub to update its cache (up to 24 hours)
