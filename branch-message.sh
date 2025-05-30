@@ -32,22 +32,39 @@ echo -e "${GREEN}✓ Created and switched to $BRANCH_NAME branch${NC}\n"
 
 # Step 4: Generate the pattern
 echo -e "${YELLOW}Step 4: Generating pattern for \"$MESSAGE\"...${NC}"
+
+# First, create a temporary branch for the pattern generation
+TEMP_BRANCH="temp-$BRANCH_NAME"
+git checkout -b "$TEMP_BRANCH"
+
+# Generate the pattern
 node cli.js create "$MESSAGE" --intensity=ultra --force-replace
-echo -e "${GREEN}✓ Pattern generated${NC}\n"
 
-# Step 5: Push to GitHub
-echo -e "${YELLOW}Step 5: Ready to push to GitHub?${NC}"
-read -p "Push to GitHub now? (y/n): " CONFIRM
+# Check if the pattern generation was successful
+if [ $? -eq 0 ]; then
+  echo -e "${GREEN}✓ Pattern generated successfully${NC}\n"
+  
+  # Step 5: Push to GitHub
+  echo -e "${YELLOW}Step 5: Ready to push to GitHub?${NC}"
+  read -p "Push to GitHub now? (y/n): " CONFIRM
 
-if [[ $CONFIRM == "y" || $CONFIRM == "Y" ]]; then
-  echo -e "\n${YELLOW}Pushing to GitHub...${NC}"
-  git push -f origin "$BRANCH_NAME"
-  echo -e "${GREEN}✓ Pattern pushed to GitHub as branch: $BRANCH_NAME${NC}"
-  echo -e "${BLUE}Important: Now go to GitHub repository settings and set $BRANCH_NAME as the default branch${NC}"
-  echo -e "${BLUE}URL: https://github.com/USERNAME/REPO/settings/branches${NC}"
+  if [[ $CONFIRM == "y" || $CONFIRM == "Y" ]]; then
+    echo -e "\n${YELLOW}Pushing to GitHub...${NC}"
+    git push -f origin "$TEMP_BRANCH:$BRANCH_NAME"
+    echo -e "${GREEN}✓ Pattern pushed to GitHub as branch: $BRANCH_NAME${NC}"
+    echo -e "${BLUE}Important: Now go to GitHub repository settings and set $BRANCH_NAME as the default branch${NC}"
+    echo -e "${BLUE}URL: https://github.com/USERNAME/REPO/settings/branches${NC}"
+  else
+    echo -e "\n${YELLOW}Push cancelled. You can push manually with:${NC}"
+    echo -e "git push -f origin $TEMP_BRANCH:$BRANCH_NAME"
+  fi
 else
-  echo -e "\n${YELLOW}Push cancelled. You can push manually with:${NC}"
-  echo -e "git push -f origin $BRANCH_NAME"
+  echo -e "${RED}✗ Pattern generation failed${NC}\n"
 fi
 
-echo -e "\n${GREEN}Done! Return to fresh-start branch with: git checkout fresh-start${NC}"
+# Return to fresh-start branch
+echo -e "\n${YELLOW}Returning to fresh-start branch...${NC}"
+git checkout fresh-start
+echo -e "${GREEN}✓ Now on fresh-start branch${NC}"
+
+echo -e "\n${GREEN}Done!${NC}"
