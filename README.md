@@ -9,42 +9,34 @@ The GitHub Activity Banner tool creates custom text patterns in your GitHub acti
 ## Quick Start
 
 1. Make sure you're on the `fresh-start` branch
-2. Create a temporary branch for your pattern:
+2. Run the branch-message script:
    ```bash
-   git checkout -b temp-pattern
+   ./branch-message.sh
    ```
-3. Generate your pattern:
-   ```bash
-   node cli.js create "YOUR MESSAGE" --intensity=ultra
-   ```
-4. Push to GitHub:
-   ```bash
-   git push -f origin temp-pattern:main
-   ```
+3. Follow the prompts to create and push your pattern
+4. The script will automatically set the new branch as default (if you provide a GitHub token)
 
-## Important Notes on Usage
+## Branch-Based Workflow
 
-### Updating Your Pattern
+This tool uses a branch-based approach to manage GitHub activity patterns:
 
-To update your pattern:
-1. Start from the `fresh-start` branch
-2. Create a new temporary branch
-3. Generate your new pattern
-4. Force push to main
+1. Each message gets its own dedicated branch (e.g., `message-ai-eng`)
+2. The branch is pushed to GitHub and set as the default branch
+3. GitHub's contribution graph shows commits from the default branch
+4. To change messages, simply create a new branch and set it as default
 
-Note: There may be a transition period where GitHub shows overlapping patterns as its cache updates.
+This approach allows you to:
+- Keep your source code safe in the `fresh-start` branch
+- Switch between different messages by changing the default branch
+- Avoid overlapping patterns in your contribution graph
 
-### Keeping Source Code Safe
+## GitHub Token Setup
 
-The `--force-replace` flag completely replaces git history, which can remove source code files. To prevent this:
+To enable automatic default branch setting:
 
-1. Always keep this `fresh-start` branch as your source of truth
-2. When making changes to the code, make them on this branch
-3. Create a temporary branch for activity patterns
-4. Run the tool on the temporary branch
-5. Force push the temporary branch to GitHub as main
-
-See `WORKFLOW.md` for detailed instructions.
+1. Create a GitHub personal access token at: https://github.com/settings/tokens
+2. Ensure it has 'repo' permissions
+3. Save it to `~/.github_token` or enter it when prompted
 
 ## Security Improvements
 
