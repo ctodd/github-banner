@@ -1,72 +1,61 @@
 # GitHub Activity Banner Workflow
 
-This document outlines the proper workflow for using the GitHub Activity Banner tool to avoid issues with overlapping contributions and to keep your source code safe.
+This document outlines the simplified workflow for using the GitHub Activity Banner tool to manage your GitHub activity graph patterns.
 
-## Proper Workflow
+## Simplified Workflow
 
-### Initial Setup
+### For Users: Getting Started with the Tool
 
-1. Clone this repository or create a new one with these files
-2. Make sure you're on the `fresh-start` branch which contains the source code
-3. Create a new GitHub repository for displaying your activity pattern
+1. Clone this repository
+2. Make sure you're on the `fresh-start` branch which contains the source code:
+   ```bash
+   git checkout fresh-start
+   ```
+3. Follow the usage instructions in the README.md
 
-### Creating a New Pattern
+### For Pattern Updates: Changing Your Banner
 
-1. **Always start from the source code branch**:
+1. Start from the `fresh-start` branch:
    ```bash
    git checkout fresh-start
    ```
 
-2. **Create a new branch for your activity pattern**:
+2. Create a temporary branch for your new pattern:
    ```bash
-   git checkout -b activity-pattern
+   git checkout -b temp-pattern
    ```
 
-3. **Generate your pattern on this branch**:
+3. Generate your new pattern:
    ```bash
-   node cli.js create "YOUR MESSAGE" --intensity=ultra
+   node cli.js create "YOUR MESSAGE" --intensity=ultra --force-replace
    ```
 
-4. **Push only the activity pattern branch to GitHub**:
+4. Force push this branch to GitHub as main:
    ```bash
-   git push -f origin activity-pattern:main
+   git push -f origin temp-pattern:main
    ```
 
-### Updating an Existing Pattern
+5. Note: There may be a transition period where GitHub's contribution graph shows overlapping patterns. This will resolve as GitHub updates its cache.
 
-If you want to change your activity pattern:
+## Understanding the Process
 
-1. **Delete the GitHub repository** to completely remove the previous pattern
-2. **Create a new GitHub repository**
-3. **Follow the steps above** to create a new pattern
-4. **Push to the new repository**
+- The `fresh-start` branch is your source of truth and contains all the tool's code
+- The `main` branch on GitHub is only for displaying your activity pattern
+- Force-replacing the main branch completely rewrites its history
+- GitHub's contribution graph may temporarily show both old and new patterns
 
-## Why This Workflow Is Necessary
+## Best Practices
 
-GitHub caches contribution data, which can cause overlapping patterns when you:
-1. Push a pattern to GitHub
-2. Create a new pattern with `--force-replace`
-3. Push to the same repository
+1. **Keep Source Code Safe**:
+   - Always make code changes in the `fresh-start` branch
+   - Never run the pattern generation on the `fresh-start` branch
 
-The cached data from the previous pattern may still appear in your activity graph, causing visual artifacts and overlapping patterns.
+2. **Clean Patterns**:
+   - Use `--force-replace` to ensure clean pattern generation
+   - Allow time between pattern changes for GitHub's cache to update
 
-## Keeping Your Source Code Safe
+3. **Repository Management**:
+   - If overlapping patterns persist and are problematic, creating a new repository is still an option
+   - For critical presentations or screenshots, consider using a fresh repository
 
-The `--force-replace` flag is necessary for creating clean patterns, but it completely replaces git history. This means:
-
-1. All previous commits are removed
-2. All files not included in the new pattern are deleted
-3. Source code can be lost if not properly backed up
-
-By keeping your source code in the `fresh-start` branch and only pushing the activity pattern branch to GitHub, you ensure that your source code remains safe while still creating clean activity patterns.
-
-## Troubleshooting
-
-If you see overlapping patterns in your GitHub activity graph:
-
-1. Delete the GitHub repository
-2. Create a new repository
-3. Follow the workflow above to create a clean pattern
-4. Push to the new repository
-
-This ensures that no cached contribution data interferes with your new pattern.
+This simplified workflow balances ease of use with maintaining clean activity patterns.
