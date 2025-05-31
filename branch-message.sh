@@ -35,8 +35,9 @@ if [ -f ~/.github_token ]; then
 else
   echo -e "${YELLOW}GitHub token not found at ~/.github_token${NC}"
   echo -e "${YELLOW}A GitHub personal access token is required to change the default branch${NC}"
-  echo -e "${YELLOW}You can create one at: https://github.com/settings/tokens${NC}"
-  echo -e "${YELLOW}It needs 'repo' permissions${NC}"
+  echo -e "${YELLOW}For fine-grained tokens, you need 'Administration: Write' permission${NC}"
+  echo -e "${YELLOW}For classic tokens, you need 'repo' permission${NC}"
+  echo -e "${YELLOW}Create one at: https://github.com/settings/tokens${NC}"
   read -p "Enter your GitHub token (or press Enter to skip auto-setting default branch): " GITHUB_TOKEN
   
   if [ ! -z "$GITHUB_TOKEN" ]; then
@@ -68,11 +69,28 @@ echo -e "${GREEN}✓ Created and switched to $BRANCH_NAME branch${NC}\n"
 
 # Step 4: Generate the pattern
 echo -e "${YELLOW}Step 4: Generating pattern for \"$MESSAGE\"...${NC}"
-node cli.js create "$MESSAGE" --intensity=ultra --force-replace
+
+# First, create a temporary file to store the pattern generation output
+TEMP_OUTPUT=$(mktemp)
+
+# Run the pattern generation and capture its output
+node cli.js create "$MESSAGE" --intensity=ultra --force-replace > "$TEMP_OUTPUT" 2>&1
+PATTERN_EXIT_CODE=$?
+
+# Display the output
+cat "$TEMP_OUTPUT"
+rm "$TEMP_OUTPUT"
 
 # Check if the pattern generation was successful
-if [ $? -eq 0 ]; then
+if [ $PATTERN_EXIT_CODE -eq 0 ]; then
   echo -e "${GREEN}✓ Pattern generated successfully${NC}\n"
+  
+  # Check if we're still on the right branch
+  CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+  if [ "$CURRENT_BRANCH" != "$BRANCH_NAME" ]; then
+    echo -e "${YELLOW}Warning: Branch changed during pattern generation. Switching back to $BRANCH_NAME...${NC}"
+    git checkout "$BRANCH_NAME"
+  fi
   
   # Step 5: Push to GitHub
   echo -e "${YELLOW}Step 5: Ready to push to GitHub?${NC}"
