@@ -13,6 +13,11 @@ NC="\033[0m" # No Color
 echo -e "${BLUE}=== GitHub Activity Banner Branch-Based Update Script ===${NC}"
 echo -e "${BLUE}This script creates a new branch for each message${NC}\n"
 
+# Clean up any existing lock files
+echo -e "${YELLOW}Cleaning up any Git lock files...${NC}"
+find .git -name "*.lock" -delete
+echo -e "${GREEN}✓ Lock files removed${NC}"
+
 # Configuration
 # Get the repository name from the remote URL
 REPO_URL=$(git config --get remote.origin.url)
@@ -50,8 +55,15 @@ else
   fi
 fi
 
-# Step 1: Make sure we are on fresh-start branch
-echo -e "\n${YELLOW}Step 1: Switching to fresh-start branch...${NC}"
+# Step 1: Make sure we are on fresh-start branch and have no uncommitted changes
+echo -e "\n${YELLOW}Step 1: Checking for uncommitted changes...${NC}"
+if [[ -n $(git status -s) ]]; then
+  echo -e "${YELLOW}Uncommitted changes detected. Stashing changes...${NC}"
+  git stash
+  echo -e "${GREEN}✓ Changes stashed${NC}"
+fi
+
+echo -e "${YELLOW}Switching to fresh-start branch...${NC}"
 git checkout fresh-start
 echo -e "${GREEN}✓ Now on fresh-start branch${NC}\n"
 
@@ -70,27 +82,18 @@ echo -e "${GREEN}✓ Created and switched to $BRANCH_NAME branch${NC}\n"
 # Step 4: Generate the pattern
 echo -e "${YELLOW}Step 4: Generating pattern for \"$MESSAGE\"...${NC}"
 
-# First, create a temporary file to store the pattern generation output
-TEMP_OUTPUT=$(mktemp)
+# Create a separate branch for pattern generation to avoid issues with --force-replace
+TEMP_BRANCH="temp-$BRANCH_NAME"
+git checkout -b "$TEMP_BRANCH"
+echo -e "${GREEN}✓ Created temporary branch for pattern generation${NC}"
 
-# Run the pattern generation and capture its output
-node cli.js create "$MESSAGE" --intensity=ultra --force-replace > "$TEMP_OUTPUT" 2>&1
+# Run the pattern generation
+node cli.js create "$MESSAGE" --intensity=ultra --force-replace
 PATTERN_EXIT_CODE=$?
-
-# Display the output
-cat "$TEMP_OUTPUT"
-rm "$TEMP_OUTPUT"
 
 # Check if the pattern generation was successful
 if [ $PATTERN_EXIT_CODE -eq 0 ]; then
   echo -e "${GREEN}✓ Pattern generated successfully${NC}\n"
-  
-  # Check if we're still on the right branch
-  CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-  if [ "$CURRENT_BRANCH" != "$BRANCH_NAME" ]; then
-    echo -e "${YELLOW}Warning: Branch changed during pattern generation. Switching back to $BRANCH_NAME...${NC}"
-    git checkout "$BRANCH_NAME"
-  fi
   
   # Step 5: Push to GitHub
   echo -e "${YELLOW}Step 5: Ready to push to GitHub?${NC}"
@@ -98,7 +101,7 @@ if [ $PATTERN_EXIT_CODE -eq 0 ]; then
 
   if [[ $CONFIRM == "y" || $CONFIRM == "Y" ]]; then
     echo -e "\n${YELLOW}Pushing to GitHub...${NC}"
-    git push -f origin "$BRANCH_NAME"
+    git push -f origin "$TEMP_BRANCH:$BRANCH_NAME"
     PUSH_SUCCESS=$?
     
     if [ $PUSH_SUCCESS -eq 0 ]; then
@@ -138,7 +141,7 @@ if [ $PATTERN_EXIT_CODE -eq 0 ]; then
     fi
   else
     echo -e "\n${YELLOW}Push cancelled. You can push manually with:${NC}"
-    echo -e "git push -f origin $BRANCH_NAME"
+    echo -e "git push -f origin $TEMP_BRANCH:$BRANCH_NAME"
   fi
 else
   echo -e "${RED}✗ Pattern generation failed${NC}\n"
@@ -148,5 +151,10 @@ fi
 echo -e "\n${YELLOW}Returning to fresh-start branch...${NC}"
 git checkout fresh-start
 echo -e "${GREEN}✓ Now on fresh-start branch${NC}"
+
+# Clean up temporary branch
+echo -e "\n${YELLOW}Cleaning up temporary branch...${NC}"
+git branch -D "$TEMP_BRANCH" 2>/dev/null || true
+echo -e "${GREEN}✓ Temporary branch removed${NC}"
 
 echo -e "\n${GREEN}Done!${NC}"
