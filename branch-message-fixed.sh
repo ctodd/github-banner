@@ -13,6 +13,8 @@ NC="\033[0m" # No Color
 # Default settings
 INTERACTIVE=true
 AUTO_PUSH=false
+DELETE_BRANCHES=false
+BRANCHES_TO_DELETE=""
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -26,12 +28,23 @@ while [[ $# -gt 0 ]]; do
       MESSAGE="${1#*=}"
       shift
       ;;
+    --delete-branches)
+      DELETE_BRANCHES=true
+      shift
+      ;;
+    --delete=*)
+      DELETE_BRANCHES=true
+      BRANCHES_TO_DELETE="${1#*=}"
+      shift
+      ;;
     --help)
       echo "Usage: ./branch-message-fixed.sh [OPTIONS]"
       echo ""
       echo "Options:"
       echo "  --non-interactive       Run in non-interactive mode (auto-push enabled)"
       echo "  --message=TEXT          Specify the message text (required in non-interactive mode)"
+      echo "  --delete-branches       Delete all other branches except fresh-start and the new message branch"
+      echo "  --delete=BRANCH1,BRANCH2 Delete specific branches (comma-separated list)"
       echo "  --help                  Show this help message"
       exit 0
       ;;
@@ -67,12 +80,52 @@ safe_git() {
   fi
 }
 
+# Function to delete branches
+delete_branches() {
+  local branches_to_delete="$1"
+  local current_branch="$2"
+  local preserve_branch="$3"
+  
+  echo -e "\n${YELLOW}Deleting specified branches...${NC}"
+  
+  # If specific branches are provided, delete them
+  if [ ! -z "$branches_to_delete" ]; then
+    IFS=',' read -ra BRANCH_ARRAY <<< "$branches_to_delete"
+    for branch in "${BRANCH_ARRAY[@]}"; do
+      if [[ "$branch" != "$current_branch" && "$branch" != "$preserve_branch" && "$branch" != "fresh-start" ]]; then
+        echo -e "${YELLOW}Deleting branch: $branch${NC}"
+        git push origin --delete "$branch" 2>/dev/null || true
+      fi
+    done
+  else
+    # Get list of all remote branches
+    REMOTE_BRANCHES=$(git ls-remote --heads origin | grep -o 'refs/heads/[^[:space:]]*' | sed 's|refs/heads/||')
+    
+    # Delete all branches except the current one, fresh-start, and the preserve branch
+    for branch in $REMOTE_BRANCHES; do
+      if [[ "$branch" != "$current_branch" && "$branch" != "$preserve_branch" && "$branch" != "fresh-start" ]]; then
+        echo -e "${YELLOW}Deleting branch: $branch${NC}"
+        git push origin --delete "$branch" 2>/dev/null || true
+      fi
+    done
+  fi
+  
+  echo -e "${GREEN}✓ Branch deletion completed${NC}"
+}
+
 echo -e "${BLUE}=== GitHub Activity Banner Branch-Based Update Script (FIXED) ===${NC}"
 echo -e "${BLUE}This script creates a new branch for each message${NC}\n"
 
 # Check if we're in non-interactive mode and have a message
 if [ "$INTERACTIVE" = false ] && [ -z "$MESSAGE" ]; then
   handle_error "Message is required in non-interactive mode. Use --message=TEXT"
+fi
+
+# Handle branch deletion only mode
+if [ "$DELETE_BRANCHES" = true ] && [ -z "$MESSAGE" ]; then
+  delete_branches "$BRANCHES_TO_DELETE" "" ""
+  echo -e "\n${GREEN}Branch deletion completed. Exiting.${NC}"
+  exit 0
 fi
 
 # Aggressive cleanup of any existing lock files
@@ -193,26 +246,35 @@ if [ -z "$SANITIZED_MESSAGE" ]; then
 fi
 
 # Create the branch name with the sanitized message
-BRANCH_NAME="main"
+BRANCH_NAME="message-$SANITIZED_MESSAGE"
 
 echo -e "\n${YELLOW}Original message: $MESSAGE${NC}"
-echo -e "${YELLOW}Using main branch for compatibility${NC}"
+echo -e "${YELLOW}Branch name: $BRANCH_NAME${NC}"
 
 # Step 3: Create a new branch for this message with no history
 echo -e "\n${YELLOW}Creating branch: $BRANCH_NAME${NC}"
-safe_git git checkout --orphan "temp-$BRANCH_NAME"
+safe_git git checkout --orphan "$BRANCH_NAME"
 
 # Remove all files from the working directory
 git rm -rf . 2>/dev/null || true
 
-echo -e "${GREEN}✓ Created new orphan branch for pattern generation${NC}\n"
+echo -e "${GREEN}✓ Created new orphan branch with no history: $BRANCH_NAME${NC}\n"
 
 # Step 4: Generate the pattern
 echo -e "${YELLOW}Step 4: Generating pattern for \"$MESSAGE\"...${NC}"
 
+# Create a separate branch for pattern generation to avoid issues with --force-replace
+TEMP_BRANCH="temp-$BRANCH_NAME"
+safe_git git checkout --orphan "$TEMP_BRANCH"
+
+# Remove all files from the working directory
+git rm -rf . 2>/dev/null || true
+
+echo -e "${GREEN}✓ Created temporary orphan branch for pattern generation${NC}"
+
 # Copy necessary files from fresh-start branch
 echo -e "${YELLOW}Copying source files from fresh-start branch...${NC}"
-git checkout fresh-start -- .gitignore patterns/ activity-generator.js cli.js utility-functions.js 2>/dev/null || true
+git checkout fresh-start -- .gitignore patterns/ activity-generator.js cli.js utility-functions.js README.md 2>/dev/null || true
 echo -e "${GREEN}✓ Source files copied${NC}"
 
 # Run the pattern generation
@@ -243,7 +305,7 @@ if [ $PATTERN_EXIT_CODE -eq 0 ]; then
 
   if [[ $CONFIRM == "y" || $CONFIRM == "Y" ]]; then
     echo -e "\n${YELLOW}Pushing to GitHub...${NC}"
-    git push -f origin "temp-$BRANCH_NAME:$BRANCH_NAME" 2>/dev/null || true
+    git push -f origin "$TEMP_BRANCH:$BRANCH_NAME" 2>/dev/null || true
     PUSH_SUCCESS=$?
     
     if [ $PUSH_SUCCESS -eq 0 ]; then
@@ -279,19 +341,20 @@ if [ $PATTERN_EXIT_CODE -eq 0 ]; then
         if [ "$UPDATED_DEFAULT" = "$BRANCH_NAME" ]; then
           echo -e "${GREEN}✓ Successfully set $BRANCH_NAME as the default branch${NC}"
           
-          # Delete old message branches
-          echo -e "\n${YELLOW}Cleaning up old message branches...${NC}"
-          
-          # Get list of remote branches
-          REMOTE_BRANCHES=$(git ls-remote --heads origin | grep -o 'refs/heads/message-[^[:space:]]*' | sed 's|refs/heads/||')
-          
-          # Delete old message branches (except the current one)
-          for branch in $REMOTE_BRANCHES; do
-            echo -e "${YELLOW}Deleting old branch: $branch${NC}"
-            git push origin --delete "$branch" 2>/dev/null || true
-          done
-          
-          echo -e "${GREEN}✓ Old message branches cleaned up${NC}"
+          # Delete branches if requested
+          if [ "$DELETE_BRANCHES" = true ]; then
+            delete_branches "$BRANCHES_TO_DELETE" "$BRANCH_NAME" "fresh-start"
+          else
+            # Ask if user wants to delete other branches
+            if [ "$INTERACTIVE" = true ]; then
+              echo -e "\n${YELLOW}Do you want to delete other branches?${NC}"
+              read -p "Delete other branches (except fresh-start and $BRANCH_NAME)? (y/n): " DELETE_CONFIRM
+              
+              if [[ $DELETE_CONFIRM == "y" || $DELETE_CONFIRM == "Y" ]]; then
+                delete_branches "" "$BRANCH_NAME" "fresh-start"
+              fi
+            fi
+          fi
         else
           echo -e "${RED}✗ Failed to set default branch${NC}"
           echo -e "${YELLOW}API Response default branch: $UPDATED_DEFAULT${NC}"
@@ -302,13 +365,25 @@ if [ $PATTERN_EXIT_CODE -eq 0 ]; then
         echo -e "${YELLOW}No GitHub token provided. Please set the default branch manually:${NC}"
         echo -e "${BLUE}1. Go to: https://github.com/$REPO_NAME/settings/branches${NC}"
         echo -e "${BLUE}2. Change the default branch to: $BRANCH_NAME${NC}"
+        
+        # Still offer to delete branches even without token
+        if [ "$DELETE_BRANCHES" = true ]; then
+          delete_branches "$BRANCHES_TO_DELETE" "$BRANCH_NAME" "fresh-start"
+        elif [ "$INTERACTIVE" = true ]; then
+          echo -e "\n${YELLOW}Do you want to delete other branches?${NC}"
+          read -p "Delete other branches (except fresh-start and $BRANCH_NAME)? (y/n): " DELETE_CONFIRM
+          
+          if [[ $DELETE_CONFIRM == "y" || $DELETE_CONFIRM == "Y" ]]; then
+            delete_branches "" "$BRANCH_NAME" "fresh-start"
+          fi
+        fi
       fi
     else
       echo -e "${RED}✗ Failed to push to GitHub${NC}"
     fi
   else
     echo -e "\n${YELLOW}Push cancelled. You can push manually with:${NC}"
-    echo -e "git push -f origin temp-$BRANCH_NAME:$BRANCH_NAME"
+    echo -e "git push -f origin $TEMP_BRANCH:$BRANCH_NAME"
   fi
 else
   echo -e "${RED}✗ Pattern generation failed${NC}\n"
@@ -321,7 +396,8 @@ echo -e "${GREEN}✓ Now on fresh-start branch${NC}"
 
 # Clean up temporary branch
 echo -e "\n${YELLOW}Cleaning up temporary branch...${NC}"
-git branch -D "temp-$BRANCH_NAME" 2>/dev/null || true
+git branch -D "$TEMP_BRANCH" 2>/dev/null || true
+git branch -D "$BRANCH_NAME" 2>/dev/null || true
 echo -e "${GREEN}✓ Temporary branches removed${NC}"
 
 # Final prune to ensure everything is clean
