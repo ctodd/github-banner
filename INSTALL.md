@@ -5,7 +5,7 @@ This guide will walk you through the process of setting up the GitHub Activity B
 ## 📋 Prerequisites
 
 - Git installed on your system
-- Node.js (v14 or higher) installed
+- Node.js (v20 or higher) installed
 - A GitHub account
 - A GitHub repository (new or existing)
 

@@ -1,5 +1,6 @@
 # Activity generator config
 .github-activity-config.json
+.github_token
 
 # Node.js
 node_modules/

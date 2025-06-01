@@ -8,7 +8,7 @@ This document outlines the branch-based workflow for using the GitHub Activity B
 
 1. Clone this repository or create a new one with these files
 2. Make sure you're on the `fresh-start` branch which contains the source code
-3. Set up a GitHub personal access token (optional, for automatic default branch setting)
+3. Set up a GitHub personal access token (see [INSTALL.md](INSTALL.md) for details)
 
 ### 🎨 Creating a New Pattern
 
@@ -37,7 +37,7 @@ To switch between different patterns:
 2. Navigate to the Branches section
 3. Change the default branch to the desired message branch
 
-All message branches are preserved, so you can switch between them at any time.
+When you create a new message branch, old message branches are automatically removed from the remote repository to keep things clean.
 
 ## ⚙️ How It Works
 
