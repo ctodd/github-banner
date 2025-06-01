@@ -106,7 +106,7 @@ function main() {
         replaceMessage(repoPath, version, options)
           .then(() => {
             console.log('\n🎯 Next steps:');
-            console.log('1. Push with force flag: git push -f origin main');
+            console.log('1. Push with force flag: git push -f origin HEAD');
             console.log('2. Wait 5-10 minutes for GitHub to update the activity graph');
             console.log('3. Your new message will be displayed!');
           })
@@ -156,9 +156,9 @@ function main() {
             console.log('   git remote add origin https://github.com/USERNAME/REPO.git');
             console.log('2. Push your changes:');
             if (options.forceReplace) {
-              console.log('   git push -f origin main  # Force push for replacements');
+              console.log('   git push -f origin HEAD  # Force push for replacements');
             } else {
-              console.log('   git push -u origin main');
+              console.log('   git push -u origin HEAD');
             }
             console.log('3. Check your GitHub profile in 5-10 minutes!');
           })
@@ -183,7 +183,7 @@ function main() {
         
         refreshAIEngineerDisplay(repoPath)
           .then(() => {
-            console.log('\n✅ Pattern refreshed! Push with: git push -f origin main');
+            console.log('\n✅ Pattern refreshed! Push with: git push -f origin HEAD');
           })
           .catch(error => {
             console.error('❌ Refresh error:', error.message);

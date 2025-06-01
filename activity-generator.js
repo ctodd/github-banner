@@ -216,7 +216,7 @@ class AIEngineerActivityGenerator {
     console.log('1. Make sure you have a GitHub repository set up:');
     console.log('   git remote add origin https://github.com/USERNAME/REPO.git');
     console.log('2. Push your changes:');
-    console.log('   git push -f origin main  # Force push for replacements');
+    console.log('   git push -f origin HEAD  # Force push for replacements');
     console.log('3. Check your GitHub profile in 5-10 minutes!');
   }
 
