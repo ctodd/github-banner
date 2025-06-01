@@ -1,16 +1,16 @@
-# GitHub Activity Banner Workflow
+# 🔄 GitHub Activity Banner Workflow
 
 This document outlines the branch-based workflow for using the GitHub Activity Banner tool to create and manage GitHub activity patterns.
 
-## Branch-Based Workflow
+## 🌿 Branch-Based Workflow
 
-### Initial Setup
+### 🚀 Initial Setup
 
 1. Clone this repository or create a new one with these files
 2. Make sure you're on the `fresh-start` branch which contains the source code
 3. Set up a GitHub personal access token (optional, for automatic default branch setting)
 
-### Creating a New Pattern
+### 🎨 Creating a New Pattern
 
 1. **Run the branch-message script**:
    ```bash
@@ -18,7 +18,7 @@ This document outlines the branch-based workflow for using the GitHub Activity B
    ```
 
 2. **Follow the prompts**:
-   - Enter the message you want to display
+   - Enter the message you want to display (max 9 characters)
    - The script will create a new branch named `message-your-text`
    - It will generate the pattern on this branch
    - It will push the branch to GitHub
@@ -29,7 +29,7 @@ This document outlines the branch-based workflow for using the GitHub Activity B
    - Navigate to the Branches section
    - Change the default branch to your new message branch
 
-### Switching Between Patterns
+### 🔄 Switching Between Patterns
 
 To switch between different patterns:
 
@@ -39,27 +39,26 @@ To switch between different patterns:
 
 All message branches are preserved, so you can switch between them at any time.
 
-## How It Works
+## ⚙️ How It Works
 
-### Branch Structure
+### 🌿 Branch Structure
 
-- **fresh-start**: Contains the source code and should never be pushed to GitHub
+- **fresh-start**: Contains the source code and should never be the default branch on GitHub
 - **message-xxx**: Each message gets its own branch with the pattern commits
 - The default branch on GitHub determines which pattern is displayed in your activity graph
 
-### GitHub's Contribution Graph
+### 📊 GitHub's Contribution Graph
 
 GitHub's contribution graph shows commits from the default branch of your repositories. By changing the default branch, you can control which pattern is displayed without deleting repositories or dealing with overlapping patterns.
 
-## GitHub Token Setup
+## 🔍 Technical Details
 
-To enable automatic default branch setting:
+1. **Orphan Branches**: Each message branch is created as an orphan branch with no history from the source code branch
+2. **Commit Dating**: The tool creates commits with specific dates to form the pattern
+3. **Uniform Distribution**: Commits are spread evenly throughout each day for a more natural appearance
+4. **Automatic Centering**: The pattern is automatically centered in the GitHub activity window
 
-1. Create a GitHub personal access token at: https://github.com/settings/tokens
-2. Ensure it has 'repo' permissions
-3. Save it to `~/.github_token` or enter it when prompted by the script
-
-## Troubleshooting
+## 🛠️ Troubleshooting
 
 If you encounter issues:
 
