@@ -12,6 +12,8 @@ This document outlines the branch-based workflow for using the GitHub Activity B
 
 ### 🎨 Creating a New Pattern
 
+#### Interactive Mode (Default)
+
 1. **Run the branch-message script**:
    ```bash
    ./branch-message.sh
@@ -24,10 +26,26 @@ This document outlines the branch-based workflow for using the GitHub Activity B
    - It will push the branch to GitHub
    - If you provided a GitHub token, it will set the branch as default
 
-3. **If you didn't provide a GitHub token**:
-   - Go to your repository settings on GitHub
-   - Navigate to the Branches section
-   - Change the default branch to your new message branch
+#### Non-Interactive Mode (For Automation)
+
+Run the script with the `--non-interactive` flag and provide a message:
+
+```bash
+./branch-message.sh --non-interactive --message=TEST
+```
+
+This will:
+- Automatically create the pattern for "TEST"
+- Push to GitHub without prompting
+- Set as default branch if a token is available
+- Clean up old message branches
+
+Available options:
+```
+--non-interactive       Run in non-interactive mode (auto-push enabled)
+--message=TEXT          Specify the message text (required in non-interactive mode)
+--help                  Show help message
+```
 
 ### 🔄 Switching Between Patterns
 
