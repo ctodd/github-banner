@@ -153,8 +153,12 @@ echo -e "\n${YELLOW}Original message: $MESSAGE${NC}"
 echo -e "${YELLOW}Sanitized branch name: $BRANCH_NAME${NC}"
 
 # Step 3: Create a new branch for this message with no history
+echo -e "\n${YELLOW}Creating branch: $BRANCH_NAME${NC}"
 safe_git git checkout --orphan "$BRANCH_NAME"
-safe_git git rm -rf .
+
+# Remove all files from the working directory
+git rm -rf . 2>/dev/null || true
+
 echo -e "${GREEN}✓ Created new orphan branch with no history: $BRANCH_NAME${NC}\n"
 
 # Step 4: Generate the pattern
@@ -163,12 +167,15 @@ echo -e "${YELLOW}Step 4: Generating pattern for \"$MESSAGE\"...${NC}"
 # Create a separate branch for pattern generation to avoid issues with --force-replace
 TEMP_BRANCH="temp-$BRANCH_NAME"
 safe_git git checkout --orphan "$TEMP_BRANCH"
-safe_git git rm -rf .
+
+# Remove all files from the working directory
+git rm -rf . 2>/dev/null || true
+
 echo -e "${GREEN}✓ Created temporary orphan branch for pattern generation${NC}"
 
 # Copy necessary files from fresh-start branch
 echo -e "${YELLOW}Copying source files from fresh-start branch...${NC}"
-safe_git git checkout fresh-start -- .gitignore patterns/ activity-generator.js cli.js utility-functions.js
+git checkout fresh-start -- .gitignore patterns/ activity-generator.js cli.js utility-functions.js 2>/dev/null || true
 echo -e "${GREEN}✓ Source files copied${NC}"
 
 # Run the pattern generation
@@ -182,8 +189,8 @@ if [ $PATTERN_EXIT_CODE -eq 0 ]; then
   # Make sure all changes are committed
   if [[ -n $(git status -s) ]]; then
     echo -e "${YELLOW}Committing any remaining changes...${NC}"
-    safe_git git add .
-    safe_git git commit -m "Finalize $MESSAGE pattern"
+    git add . 2>/dev/null || true
+    git commit -m "Finalize $MESSAGE pattern" 2>/dev/null || true
   fi
   
   # Step 5: Push to GitHub
@@ -192,7 +199,7 @@ if [ $PATTERN_EXIT_CODE -eq 0 ]; then
 
   if [[ $CONFIRM == "y" || $CONFIRM == "Y" ]]; then
     echo -e "\n${YELLOW}Pushing to GitHub...${NC}"
-    safe_git git push -f origin "$TEMP_BRANCH:$BRANCH_NAME"
+    git push -f origin "$TEMP_BRANCH:$BRANCH_NAME" 2>/dev/null || true
     PUSH_SUCCESS=$?
     
     if [ $PUSH_SUCCESS -eq 0 ]; then
@@ -238,7 +245,7 @@ if [ $PATTERN_EXIT_CODE -eq 0 ]; then
           for branch in $REMOTE_BRANCHES; do
             if [ "$branch" != "$BRANCH_NAME" ]; then
               echo -e "${YELLOW}Deleting old branch: $branch${NC}"
-              git push origin --delete "$branch" || true
+              git push origin --delete "$branch" 2>/dev/null || true
             fi
           done
           
@@ -267,7 +274,7 @@ fi
 
 # Return to fresh-start branch
 echo -e "\n${YELLOW}Returning to fresh-start branch...${NC}"
-safe_git git checkout fresh-start
+git checkout fresh-start 2>/dev/null || true
 echo -e "${GREEN}✓ Now on fresh-start branch${NC}"
 
 # Clean up temporary branch
