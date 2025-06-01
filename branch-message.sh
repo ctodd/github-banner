@@ -13,6 +13,9 @@ NC="\033[0m" # No Color
 # Default settings
 INTERACTIVE=true
 AUTO_PUSH=false
+DELETE_BRANCHES=false
+BRANCHES_TO_DELETE=""
+USE_UTC=false
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -26,12 +29,28 @@ while [[ $# -gt 0 ]]; do
       MESSAGE="${1#*=}"
       shift
       ;;
+    --delete-branches)
+      DELETE_BRANCHES=true
+      shift
+      ;;
+    --delete=*)
+      DELETE_BRANCHES=true
+      BRANCHES_TO_DELETE="${1#*=}"
+      shift
+      ;;
+    --use-utc)
+      USE_UTC=true
+      shift
+      ;;
     --help)
       echo "Usage: ./branch-message.sh [OPTIONS]"
       echo ""
       echo "Options:"
       echo "  --non-interactive       Run in non-interactive mode (auto-push enabled)"
       echo "  --message=TEXT          Specify the message text (required in non-interactive mode)"
+      echo "  --delete-branches       Delete all other branches except fresh-start and the new message branch"
+      echo "  --delete=BRANCH1,BRANCH2 Delete specific branches (comma-separated list)"
+      echo "  --use-utc               Use UTC timezone for commits (default: use local timezone)"
       echo "  --help                  Show this help message"
       exit 0
       ;;
@@ -67,12 +86,67 @@ safe_git() {
   fi
 }
 
+# Function to add a commit with a specific date
+add_commit() {
+  local date="$1"
+  local message="$2"
+  echo "$message" >> ai-engineer-activity.txt
+  git add ai-engineer-activity.txt
+  
+  # Add timezone indicator if using UTC
+  if [ "$USE_UTC" = true ] && [[ ! "$date" =~ Z$ ]]; then
+    date="${date}Z"
+  fi
+  
+  GIT_AUTHOR_DATE="$date" GIT_COMMITTER_DATE="$date" git commit -m "$message"
+}
+
+# Function to delete branches
+delete_branches() {
+  local branches_to_delete="$1"
+  local current_branch="$2"
+  local preserve_branch="$3"
+  
+  echo -e "\n${YELLOW}Deleting specified branches...${NC}"
+  
+  # If specific branches are provided, delete them
+  if [ ! -z "$branches_to_delete" ]; then
+    IFS=',' read -ra BRANCH_ARRAY <<< "$branches_to_delete"
+    for branch in "${BRANCH_ARRAY[@]}"; do
+      if [[ "$branch" != "$current_branch" && "$branch" != "$preserve_branch" && "$branch" != "fresh-start" ]]; then
+        echo -e "${YELLOW}Deleting branch: $branch${NC}"
+        git push origin --delete "$branch" 2>/dev/null || true
+      fi
+    done
+  else
+    # Get list of all remote branches
+    REMOTE_BRANCHES=$(git ls-remote --heads origin | grep -o 'refs/heads/[^[:space:]]*' | sed 's|refs/heads/||')
+    
+    # Delete all branches except the current one, fresh-start, and the preserve branch
+    for branch in $REMOTE_BRANCHES; do
+      if [[ "$branch" != "$current_branch" && "$branch" != "$preserve_branch" && "$branch" != "fresh-start" ]]; then
+        echo -e "${YELLOW}Deleting branch: $branch${NC}"
+        git push origin --delete "$branch" 2>/dev/null || true
+      fi
+    done
+  fi
+  
+  echo -e "${GREEN}✓ Branch deletion completed${NC}"
+}
+
 echo -e "${BLUE}=== GitHub Activity Banner Branch-Based Update Script ===${NC}"
 echo -e "${BLUE}This script creates a new branch for each message${NC}\n"
 
 # Check if we're in non-interactive mode and have a message
 if [ "$INTERACTIVE" = false ] && [ -z "$MESSAGE" ]; then
   handle_error "Message is required in non-interactive mode. Use --message=TEXT"
+fi
+
+# Handle branch deletion only mode
+if [ "$DELETE_BRANCHES" = true ] && [ -z "$MESSAGE" ]; then
+  delete_branches "$BRANCHES_TO_DELETE" "" ""
+  echo -e "\n${GREEN}Branch deletion completed. Exiting.${NC}"
+  exit 0
 fi
 
 # Aggressive cleanup of any existing lock files
@@ -193,10 +267,10 @@ if [ -z "$SANITIZED_MESSAGE" ]; then
 fi
 
 # Create the branch name with the sanitized message
-BRANCH_NAME="message-${SANITIZED_MESSAGE}"
+BRANCH_NAME="message-$SANITIZED_MESSAGE"
 
 echo -e "\n${YELLOW}Original message: $MESSAGE${NC}"
-echo -e "${YELLOW}Sanitized branch name: $BRANCH_NAME${NC}"
+echo -e "${YELLOW}Branch name: $BRANCH_NAME${NC}"
 
 # Step 3: Create a new branch for this message with no history
 echo -e "\n${YELLOW}Creating branch: $BRANCH_NAME${NC}"
@@ -221,11 +295,15 @@ echo -e "${GREEN}✓ Created temporary orphan branch for pattern generation${NC}
 
 # Copy necessary files from fresh-start branch
 echo -e "${YELLOW}Copying source files from fresh-start branch...${NC}"
-git checkout fresh-start -- .gitignore patterns/ activity-generator.js cli.js utility-functions.js 2>/dev/null || true
+git checkout fresh-start -- .gitignore patterns/ activity-generator.js cli.js utility-functions.js README.md 2>/dev/null || true
 echo -e "${GREEN}✓ Source files copied${NC}"
 
 # Run the pattern generation
-node cli.js create "$MESSAGE" --intensity=ultra --force-replace
+if [ "$USE_UTC" = true ]; then
+  node cli.js create "$MESSAGE" --intensity=ultra --force-replace --use-utc
+else
+  node cli.js create "$MESSAGE" --intensity=ultra --force-replace
+fi
 PATTERN_EXIT_CODE=$?
 
 # Check if the pattern generation was successful
@@ -288,21 +366,20 @@ if [ $PATTERN_EXIT_CODE -eq 0 ]; then
         if [ "$UPDATED_DEFAULT" = "$BRANCH_NAME" ]; then
           echo -e "${GREEN}✓ Successfully set $BRANCH_NAME as the default branch${NC}"
           
-          # Delete old message branches
-          echo -e "\n${YELLOW}Cleaning up old message branches...${NC}"
-          
-          # Get list of remote branches
-          REMOTE_BRANCHES=$(git ls-remote --heads origin | grep -o 'refs/heads/message-[^[:space:]]*' | sed 's|refs/heads/||')
-          
-          # Delete old message branches (except the current one)
-          for branch in $REMOTE_BRANCHES; do
-            if [ "$branch" != "$BRANCH_NAME" ]; then
-              echo -e "${YELLOW}Deleting old branch: $branch${NC}"
-              git push origin --delete "$branch" 2>/dev/null || true
+          # Delete branches if requested
+          if [ "$DELETE_BRANCHES" = true ]; then
+            delete_branches "$BRANCHES_TO_DELETE" "$BRANCH_NAME" "fresh-start"
+          else
+            # Ask if user wants to delete other branches
+            if [ "$INTERACTIVE" = true ]; then
+              echo -e "\n${YELLOW}Do you want to delete other branches?${NC}"
+              read -p "Delete other branches (except fresh-start and $BRANCH_NAME)? (y/n): " DELETE_CONFIRM
+              
+              if [[ $DELETE_CONFIRM == "y" || $DELETE_CONFIRM == "Y" ]]; then
+                delete_branches "" "$BRANCH_NAME" "fresh-start"
+              fi
             fi
-          done
-          
-          echo -e "${GREEN}✓ Old message branches cleaned up${NC}"
+          fi
         else
           echo -e "${RED}✗ Failed to set default branch${NC}"
           echo -e "${YELLOW}API Response default branch: $UPDATED_DEFAULT${NC}"
@@ -313,6 +390,18 @@ if [ $PATTERN_EXIT_CODE -eq 0 ]; then
         echo -e "${YELLOW}No GitHub token provided. Please set the default branch manually:${NC}"
         echo -e "${BLUE}1. Go to: https://github.com/$REPO_NAME/settings/branches${NC}"
         echo -e "${BLUE}2. Change the default branch to: $BRANCH_NAME${NC}"
+        
+        # Still offer to delete branches even without token
+        if [ "$DELETE_BRANCHES" = true ]; then
+          delete_branches "$BRANCHES_TO_DELETE" "$BRANCH_NAME" "fresh-start"
+        elif [ "$INTERACTIVE" = true ]; then
+          echo -e "\n${YELLOW}Do you want to delete other branches?${NC}"
+          read -p "Delete other branches (except fresh-start and $BRANCH_NAME)? (y/n): " DELETE_CONFIRM
+          
+          if [[ $DELETE_CONFIRM == "y" || $DELETE_CONFIRM == "Y" ]]; then
+            delete_branches "" "$BRANCH_NAME" "fresh-start"
+          fi
+        fi
       fi
     else
       echo -e "${RED}✗ Failed to push to GitHub${NC}"
