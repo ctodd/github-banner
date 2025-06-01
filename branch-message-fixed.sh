@@ -15,6 +15,7 @@ INTERACTIVE=true
 AUTO_PUSH=false
 DELETE_BRANCHES=false
 BRANCHES_TO_DELETE=""
+USE_UTC=false
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -37,6 +38,10 @@ while [[ $# -gt 0 ]]; do
       BRANCHES_TO_DELETE="${1#*=}"
       shift
       ;;
+    --use-utc)
+      USE_UTC=true
+      shift
+      ;;
     --help)
       echo "Usage: ./branch-message-fixed.sh [OPTIONS]"
       echo ""
@@ -45,6 +50,7 @@ while [[ $# -gt 0 ]]; do
       echo "  --message=TEXT          Specify the message text (required in non-interactive mode)"
       echo "  --delete-branches       Delete all other branches except fresh-start and the new message branch"
       echo "  --delete=BRANCH1,BRANCH2 Delete specific branches (comma-separated list)"
+      echo "  --use-utc               Use UTC timezone for commits (default: use local timezone)"
       echo "  --help                  Show this help message"
       exit 0
       ;;

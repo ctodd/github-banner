@@ -34,6 +34,9 @@ args.forEach(arg => {
   if (arg === '--no-center') {
     options.centerMessage = false;
   }
+  if (arg === '--use-utc') {
+    options.useUtc = true;
+  }
 });
 
 function main() {
