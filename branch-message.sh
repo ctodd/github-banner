@@ -96,7 +96,7 @@ if [ -z "$MESSAGE" ]; then
   exit 1
 fi
 
-# Create a sanitized branch name - remove all special characters and keep only alphanumeric and hyphens
+# Create a sanitized branch name - replace all special characters with hyphens and normalize
 SANITIZED_MESSAGE=$(echo "$MESSAGE" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//' | sed 's/-$//')
 
 # Validate that there's at least one valid character after sanitization
