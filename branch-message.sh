@@ -91,7 +91,7 @@ echo -e "\n${YELLOW}Step 2: What message would you like to display?${NC}"
 read -p "Enter message (e.g., AI ENG): " MESSAGE
 
 # Create a sanitized branch name
-BRANCH_NAME="message-$(echo $MESSAGE | tr '[:upper:]' '[:lower:]' | tr ' ' '-')"
+BRANCH_NAME="message-$(echo $MESSAGE | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -d '#')"
 echo -e "\n${YELLOW}Creating branch: $BRANCH_NAME${NC}"
 
 # Step 3: Create a new branch for this message with no history
