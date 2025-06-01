@@ -90,6 +90,12 @@ fi
 echo -e "\n${YELLOW}Step 2: What message would you like to display?${NC}"
 read -p "Enter message (e.g., AI ENG): " MESSAGE
 
+# Validate message is not empty
+if [ -z "$MESSAGE" ]; then
+  echo -e "${RED}Error: Message cannot be empty${NC}"
+  exit 1
+fi
+
 # Create a sanitized branch name
 BRANCH_NAME="message-$(echo $MESSAGE | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -d '#')"
 echo -e "\n${YELLOW}Creating branch: $BRANCH_NAME${NC}"
