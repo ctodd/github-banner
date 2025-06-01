@@ -10,13 +10,47 @@ YELLOW="\033[1;33m"
 RED="\033[0;31m"
 NC="\033[0m" # No Color
 
+# Error handling function
+handle_error() {
+  echo -e "${RED}Error: $1${NC}"
+  # Clean up any temporary branches
+  git checkout -q fresh-start 2>/dev/null || true
+  git branch -D temp-message-* 2>/dev/null || true
+  git branch -D message-* 2>/dev/null || true
+  # Remove lock files
+  find .git -name "*.lock" -delete
+  exit 1
+}
+
+# Function to safely execute git commands
+safe_git() {
+  # Add a small delay to prevent race conditions
+  sleep 0.5
+  
+  # Execute the git command
+  "$@"
+  
+  # Check if the command succeeded
+  if [ $? -ne 0 ]; then
+    handle_error "Git command failed: $*"
+  fi
+}
+
 echo -e "${BLUE}=== GitHub Activity Banner Branch-Based Update Script ===${NC}"
 echo -e "${BLUE}This script creates a new branch for each message${NC}\n"
 
-# Clean up any existing lock files
+# Aggressive cleanup of any existing lock files
 echo -e "${YELLOW}Cleaning up any Git lock files...${NC}"
 find .git -name "*.lock" -delete
 echo -e "${GREEN}✓ Lock files removed${NC}"
+
+# Reset any uncommitted changes
+if [[ -n $(git status -s) ]]; then
+  echo -e "${YELLOW}Uncommitted changes detected. Resetting...${NC}"
+  git reset --hard HEAD
+  git clean -fd
+  echo -e "${GREEN}✓ Working directory cleaned${NC}"
+fi
 
 # Prune stale remote branches
 echo -e "${YELLOW}Pruning stale remote branches...${NC}"
@@ -65,17 +99,17 @@ fi
 echo -e "\n${YELLOW}Step 1: Checking for uncommitted changes...${NC}"
 if [[ -n $(git status -s) ]]; then
   echo -e "${YELLOW}Uncommitted changes detected. Stashing changes...${NC}"
-  git stash
+  safe_git git stash
   echo -e "${GREEN}✓ Changes stashed${NC}"
 fi
 
 echo -e "${YELLOW}Switching to fresh-start branch...${NC}"
-git checkout fresh-start
+safe_git git checkout fresh-start
 echo -e "${GREEN}✓ Now on fresh-start branch${NC}\n"
 
 # Clean up local message branches
 echo -e "${YELLOW}Cleaning up local message branches...${NC}"
-LOCAL_MESSAGE_BRANCHES=$(git branch | grep "message-" | sed 's/^[ *]*//')
+LOCAL_MESSAGE_BRANCHES=$(git branch | grep -E "message-|temp-message-" | sed 's/^[ *]*//')
 if [ ! -z "$LOCAL_MESSAGE_BRANCHES" ]; then
   for branch in $LOCAL_MESSAGE_BRANCHES; do
     echo -e "${YELLOW}Deleting local branch: $branch${NC}"
@@ -103,7 +137,7 @@ if [ ${#MESSAGE} -gt 9 ]; then
   exit 1
 fi
 
-# Create a sanitized branch name - remove all special characters and keep only alphanumeric and hyphens
+# Create a sanitized branch name - replace all special characters with hyphens and normalize
 SANITIZED_MESSAGE=$(echo "$MESSAGE" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//' | sed 's/-$//')
 
 # Validate that there's at least one valid character after sanitization
@@ -117,11 +151,10 @@ BRANCH_NAME="message-${SANITIZED_MESSAGE}"
 
 echo -e "\n${YELLOW}Original message: $MESSAGE${NC}"
 echo -e "${YELLOW}Sanitized branch name: $BRANCH_NAME${NC}"
-echo -e "\n${YELLOW}Creating branch: $BRANCH_NAME${NC}"
 
 # Step 3: Create a new branch for this message with no history
-git checkout --orphan "$BRANCH_NAME"
-git rm -rf .
+safe_git git checkout --orphan "$BRANCH_NAME"
+safe_git git rm -rf .
 echo -e "${GREEN}✓ Created new orphan branch with no history: $BRANCH_NAME${NC}\n"
 
 # Step 4: Generate the pattern
@@ -129,13 +162,13 @@ echo -e "${YELLOW}Step 4: Generating pattern for \"$MESSAGE\"...${NC}"
 
 # Create a separate branch for pattern generation to avoid issues with --force-replace
 TEMP_BRANCH="temp-$BRANCH_NAME"
-git checkout --orphan "$TEMP_BRANCH"
-git rm -rf .
+safe_git git checkout --orphan "$TEMP_BRANCH"
+safe_git git rm -rf .
 echo -e "${GREEN}✓ Created temporary orphan branch for pattern generation${NC}"
 
 # Copy necessary files from fresh-start branch
 echo -e "${YELLOW}Copying source files from fresh-start branch...${NC}"
-git checkout fresh-start -- .gitignore patterns/ activity-generator.js cli.js utility-functions.js
+safe_git git checkout fresh-start -- .gitignore patterns/ activity-generator.js cli.js utility-functions.js
 echo -e "${GREEN}✓ Source files copied${NC}"
 
 # Run the pattern generation
@@ -149,8 +182,8 @@ if [ $PATTERN_EXIT_CODE -eq 0 ]; then
   # Make sure all changes are committed
   if [[ -n $(git status -s) ]]; then
     echo -e "${YELLOW}Committing any remaining changes...${NC}"
-    git add .
-    git commit -m "Finalize $MESSAGE pattern"
+    safe_git git add .
+    safe_git git commit -m "Finalize $MESSAGE pattern"
   fi
   
   # Step 5: Push to GitHub
@@ -159,7 +192,7 @@ if [ $PATTERN_EXIT_CODE -eq 0 ]; then
 
   if [[ $CONFIRM == "y" || $CONFIRM == "Y" ]]; then
     echo -e "\n${YELLOW}Pushing to GitHub...${NC}"
-    git push -f origin "$TEMP_BRANCH:$BRANCH_NAME"
+    safe_git git push -f origin "$TEMP_BRANCH:$BRANCH_NAME"
     PUSH_SUCCESS=$?
     
     if [ $PUSH_SUCCESS -eq 0 ]; then
@@ -205,7 +238,7 @@ if [ $PATTERN_EXIT_CODE -eq 0 ]; then
           for branch in $REMOTE_BRANCHES; do
             if [ "$branch" != "$BRANCH_NAME" ]; then
               echo -e "${YELLOW}Deleting old branch: $branch${NC}"
-              git push origin --delete "$branch"
+              git push origin --delete "$branch" || true
             fi
           done
           
@@ -234,7 +267,7 @@ fi
 
 # Return to fresh-start branch
 echo -e "\n${YELLOW}Returning to fresh-start branch...${NC}"
-git checkout fresh-start
+safe_git git checkout fresh-start
 echo -e "${GREEN}✓ Now on fresh-start branch${NC}"
 
 # Clean up temporary branch
