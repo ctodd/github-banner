@@ -10,6 +10,37 @@ YELLOW="\033[1;33m"
 RED="\033[0;31m"
 NC="\033[0m" # No Color
 
+# Default settings
+INTERACTIVE=true
+AUTO_PUSH=false
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --non-interactive)
+      INTERACTIVE=false
+      AUTO_PUSH=true
+      shift
+      ;;
+    --message=*)
+      MESSAGE="${1#*=}"
+      shift
+      ;;
+    --help)
+      echo "Usage: ./branch-message.sh [OPTIONS]"
+      echo ""
+      echo "Options:"
+      echo "  --non-interactive       Run in non-interactive mode (auto-push enabled)"
+      echo "  --message=TEXT          Specify the message text (required in non-interactive mode)"
+      echo "  --help                  Show this help message"
+      exit 0
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+
 # Error handling function
 handle_error() {
   echo -e "${RED}Error: $1${NC}"
@@ -39,6 +70,11 @@ safe_git() {
 echo -e "${BLUE}=== GitHub Activity Banner Branch-Based Update Script ===${NC}"
 echo -e "${BLUE}This script creates a new branch for each message${NC}\n"
 
+# Check if we're in non-interactive mode and have a message
+if [ "$INTERACTIVE" = false ] && [ -z "$MESSAGE" ]; then
+  handle_error "Message is required in non-interactive mode. Use --message=TEXT"
+fi
+
 # Aggressive cleanup of any existing lock files
 echo -e "${YELLOW}Cleaning up any Git lock files...${NC}"
 find .git -name "*.lock" -delete
@@ -65,10 +101,14 @@ REPO_NAME=$(echo $REPO_URL | sed -n 's/.*github.com[:\/]\([^\/]*\/[^\/]*\).*/\1/
 
 if [ -z "$REPO_NAME" ]; then
   echo -e "${RED}Error: Could not determine repository name from remote URL${NC}"
-  echo -e "${YELLOW}Please enter your GitHub username and repository name manually:${NC}"
-  read -p "GitHub username: " GITHUB_USERNAME
-  read -p "Repository name: " REPO_NAME_ONLY
-  REPO_NAME="${GITHUB_USERNAME}/${REPO_NAME_ONLY}"
+  if [ "$INTERACTIVE" = true ]; then
+    echo -e "${YELLOW}Please enter your GitHub username and repository name manually:${NC}"
+    read -p "GitHub username: " GITHUB_USERNAME
+    read -p "Repository name: " REPO_NAME_ONLY
+    REPO_NAME="${GITHUB_USERNAME}/${REPO_NAME_ONLY}"
+  else
+    handle_error "Could not determine repository name in non-interactive mode"
+  fi
 fi
 
 echo -e "${BLUE}Repository: ${REPO_NAME}${NC}"
@@ -79,19 +119,23 @@ if [ -f ~/.github_token ]; then
   echo -e "${GREEN}✓ Found GitHub token${NC}"
 else
   echo -e "${YELLOW}GitHub token not found at ~/.github_token${NC}"
-  echo -e "${YELLOW}A GitHub personal access token is required to change the default branch${NC}"
-  echo -e "${YELLOW}For fine-grained tokens, you need 'Administration: Write' permission${NC}"
-  echo -e "${YELLOW}For classic tokens, you need 'repo' permission${NC}"
-  echo -e "${YELLOW}Create one at: https://github.com/settings/tokens${NC}"
-  read -p "Enter your GitHub token (or press Enter to skip auto-setting default branch): " GITHUB_TOKEN
-  
-  if [ ! -z "$GITHUB_TOKEN" ]; then
-    read -p "Save token for future use? (y/n): " SAVE_TOKEN
-    if [[ $SAVE_TOKEN == "y" || $SAVE_TOKEN == "Y" ]]; then
-      echo "$GITHUB_TOKEN" > ~/.github_token
-      chmod 600 ~/.github_token
-      echo -e "${GREEN}✓ Token saved to ~/.github_token${NC}"
+  if [ "$INTERACTIVE" = true ]; then
+    echo -e "${YELLOW}A GitHub personal access token is required to change the default branch${NC}"
+    echo -e "${YELLOW}For fine-grained tokens, you need 'Administration: Write' permission${NC}"
+    echo -e "${YELLOW}For classic tokens, you need 'repo' permission${NC}"
+    echo -e "${YELLOW}Create one at: https://github.com/settings/tokens${NC}"
+    read -p "Enter your GitHub token (or press Enter to skip auto-setting default branch): " GITHUB_TOKEN
+    
+    if [ ! -z "$GITHUB_TOKEN" ]; then
+      read -p "Save token for future use? (y/n): " SAVE_TOKEN
+      if [[ $SAVE_TOKEN == "y" || $SAVE_TOKEN == "Y" ]]; then
+        echo "$GITHUB_TOKEN" > ~/.github_token
+        chmod 600 ~/.github_token
+        echo -e "${GREEN}✓ Token saved to ~/.github_token${NC}"
+      fi
     fi
+  else
+    echo -e "${YELLOW}Warning: No GitHub token found. Default branch will not be set automatically.${NC}"
   fi
 fi
 
@@ -121,8 +165,10 @@ else
 fi
 
 # Step 2: Get the message
-echo -e "\n${YELLOW}Step 2: What message would you like to display?${NC}"
-read -p "Enter message (e.g., AI ENG): " MESSAGE
+if [ -z "$MESSAGE" ]; then
+  echo -e "\n${YELLOW}Step 2: What message would you like to display?${NC}"
+  read -p "Enter message (e.g., AI ENG): " MESSAGE
+fi
 
 # Validate message is not empty
 if [ -z "$MESSAGE" ]; then
@@ -194,8 +240,15 @@ if [ $PATTERN_EXIT_CODE -eq 0 ]; then
   fi
   
   # Step 5: Push to GitHub
-  echo -e "${YELLOW}Step 5: Ready to push to GitHub?${NC}"
-  read -p "Push to GitHub now? (y/n): " CONFIRM
+  CONFIRM="n"
+  
+  if [ "$INTERACTIVE" = true ]; then
+    echo -e "${YELLOW}Step 5: Ready to push to GitHub?${NC}"
+    read -p "Push to GitHub now? (y/n): " CONFIRM
+  elif [ "$AUTO_PUSH" = true ]; then
+    CONFIRM="y"
+    echo -e "${YELLOW}Step 5: Auto-pushing to GitHub (non-interactive mode)${NC}"
+  fi
 
   if [[ $CONFIRM == "y" || $CONFIRM == "Y" ]]; then
     echo -e "\n${YELLOW}Pushing to GitHub...${NC}"
