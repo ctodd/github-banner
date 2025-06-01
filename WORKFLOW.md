@@ -91,3 +91,20 @@ If you encounter issues:
 3. **Pattern not appearing in contribution graph**:
    - Verify that the message branch is set as the default branch
    - Allow time for GitHub to update its cache (up to 24 hours)
+
+## 🛠️ Fixed Script for Banner Generation
+
+If you're experiencing issues with the banner not showing up in your GitHub activity graph, use the fixed script:
+
+```bash
+./branch-message-fixed.sh --non-interactive --message=YOUR_TEXT
+```
+
+This script:
+- Always uses the `main` branch for compatibility
+- Ensures all commits are pushed to the correct branch
+- Sets the default branch correctly
+- Cleans up old message branches
+
+The fixed script addresses an issue where commits were being generated correctly but not pushed to the branch that becomes the default branch on GitHub.
+
