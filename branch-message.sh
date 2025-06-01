@@ -96,7 +96,14 @@ if [ -z "$MESSAGE" ]; then
   exit 1
 fi
 
-# Create a sanitized branch name - replace all special characters with hyphens and normalize
+# Validate message length (maximum 9 characters to fit in GitHub's display)
+if [ ${#MESSAGE} -gt 9 ]; then
+  echo -e "${RED}Error: Message is too long (${#MESSAGE} characters)${NC}"
+  echo -e "${YELLOW}Messages must be 9 characters or less to fit in GitHub's activity graph${NC}"
+  exit 1
+fi
+
+# Create a sanitized branch name - remove all special characters and keep only alphanumeric and hyphens
 SANITIZED_MESSAGE=$(echo "$MESSAGE" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//' | sed 's/-$//')
 
 # Validate that there's at least one valid character after sanitization
